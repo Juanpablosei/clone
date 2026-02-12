@@ -65,6 +65,9 @@ export default function HomeAdminPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [pendingAboutImageFile, setPendingAboutImageFile] = useState<File | null>(null);
+  const [pendingServiceImageFile, setPendingServiceImageFile] = useState<File | null>(null);
+  const [pendingPartnersImageFile, setPendingPartnersImageFile] = useState<File | null>(null);
   const [formData, setFormData] = useState<HomePageData>({
     id: "home-page",
     headerTitle: "",
@@ -142,13 +145,82 @@ export default function HomeAdminPage() {
     setSaving(true);
 
     try {
+      let aboutImageUrl = formData.aboutImage || "";
+      let serviceImageUrl = formData.serviceImage || "";
+      let partnersImageUrl = formData.partnersImage || "";
+
+      if (pendingAboutImageFile) {
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", pendingAboutImageFile);
+        formDataUpload.append("folder", "home");
+        formDataUpload.append("slug", "about");
+        if (formData.aboutImage) {
+          formDataUpload.append("previousUrl", formData.aboutImage);
+        }
+        const uploadResponse = await fetch("/api/admin/upload", { method: "POST", body: formDataUpload });
+        if (!uploadResponse.ok) {
+          const data = await uploadResponse.json().catch(() => ({}));
+          setError(data.error || "Error uploading about image");
+          return;
+        }
+        const data = await uploadResponse.json();
+        aboutImageUrl = data.path || aboutImageUrl;
+      }
+
+      if (pendingServiceImageFile) {
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", pendingServiceImageFile);
+        formDataUpload.append("folder", "home");
+        formDataUpload.append("slug", "service");
+        if (formData.serviceImage) {
+          formDataUpload.append("previousUrl", formData.serviceImage);
+        }
+        const uploadResponse = await fetch("/api/admin/upload", { method: "POST", body: formDataUpload });
+        if (!uploadResponse.ok) {
+          const data = await uploadResponse.json().catch(() => ({}));
+          setError(data.error || "Error uploading service image");
+          return;
+        }
+        const data = await uploadResponse.json();
+        serviceImageUrl = data.path || serviceImageUrl;
+      }
+
+      if (pendingPartnersImageFile) {
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", pendingPartnersImageFile);
+        formDataUpload.append("folder", "home");
+        formDataUpload.append("slug", "partners");
+        if (formData.partnersImage) {
+          formDataUpload.append("previousUrl", formData.partnersImage);
+        }
+        const uploadResponse = await fetch("/api/admin/upload", { method: "POST", body: formDataUpload });
+        if (!uploadResponse.ok) {
+          const data = await uploadResponse.json().catch(() => ({}));
+          setError(data.error || "Error uploading partners image");
+          return;
+        }
+        const data = await uploadResponse.json();
+        partnersImageUrl = data.path || partnersImageUrl;
+      }
+
+      const payload = {
+        ...formData,
+        aboutImage: aboutImageUrl,
+        serviceImage: serviceImageUrl,
+        partnersImage: partnersImageUrl,
+      };
+
       const response = await fetch("/api/admin/home", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
+        setFormData(payload);
+        setPendingAboutImageFile(null);
+        setPendingServiceImageFile(null);
+        setPendingPartnersImageFile(null);
         setSuccess(true);
         setTimeout(() => setSuccess(false), 3000);
       } else {
@@ -372,10 +444,11 @@ export default function HomeAdminPage() {
                 <ImageUpload
                   value={formData.aboutImage}
                   onChange={(url) => setFormData({ ...formData, aboutImage: url || "" })}
+                  onFileSelect={(file) => setPendingAboutImageFile(file)}
                   folder="home"
                   slug="about"
                   label=""
-                  autoUpload={true}
+                  autoUpload={false}
                   previewSize="xl"
                 />
               </div>
@@ -532,10 +605,11 @@ export default function HomeAdminPage() {
                 <ImageUpload
                   value={formData.serviceImage || ""}
                   onChange={(url) => setFormData({ ...formData, serviceImage: url || "" })}
+                  onFileSelect={(file) => setPendingServiceImageFile(file)}
                   folder="home"
                   slug="service"
                   label=""
-                  autoUpload={true}
+                  autoUpload={false}
                   previewSize="xl"
                 />
                 <input
@@ -717,10 +791,11 @@ export default function HomeAdminPage() {
                     <ImageUpload
                       value={formData.partnersImage || ""}
                       onChange={(url) => setFormData({ ...formData, partnersImage: url || "" })}
+                      onFileSelect={(file) => setPendingPartnersImageFile(file)}
                       folder="home"
                       slug="partners"
                       label=""
-                      autoUpload={true}
+                      autoUpload={false}
                       previewSize="xl"
                     />
                   </div>
