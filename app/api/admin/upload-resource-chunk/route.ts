@@ -3,9 +3,10 @@ import { auth } from "../../../../lib/auth";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
+import { randomUUID } from "crypto";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const CHUNK_SIZE = 1024 * 1024; // 1MB por chunk
+const CHUNK_SIZE = 100 * 1024; // 100KB por chunk
 const RESOURCES_DIR = join(process.cwd(), "public", "resources");
 
 // Almacenar chunks temporalmente en memoria (en producción usar Redis o similar)
@@ -91,13 +92,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "File size mismatch" }, { status: 400 });
       }
 
-      // Generar nombre de archivo único
-      const timestamp = Date.now();
-      const sanitizedFileName = fileName
-        .replace(/[^a-zA-Z0-9.-]/g, "_")
-        .substring(0, 100);
-      const fileExtension = fileName.split(".").pop() || "";
-      const uniqueFileName = `${sanitizedFileName.replace(/\.[^/.]+$/, "")}-${timestamp}.${fileExtension}`;
+      // Generar nombre nuevo (no usar el nombre original del usuario)
+      const fileExtension = (fileName.split(".").pop() || "").replace(/[^a-zA-Z0-9]/g, "") || "bin";
+      const uniqueFileName = `${randomUUID()}.${fileExtension}`;
 
       // Asegurar que el directorio existe
       if (!existsSync(RESOURCES_DIR)) {

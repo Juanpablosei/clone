@@ -92,14 +92,12 @@ export default function AdminNavbar() {
       const response = await fetch("/api/admin/sync-main", { method: "POST" });
       const data = await response.json();
       if (!response.ok || !data?.ok) {
-        setSyncResultMessage("Sync failed. Check server logs.");
+        setSyncResultMessage("Failed to publish changes.");
         return;
       }
-      setSyncResultMessage(
-        `Sync completed. Inserts: ${data.summary.inserted}, Updates: ${data.summary.updated}`
-      );
+      setSyncResultMessage("Changes published successfully.");
     } catch {
-      setSyncResultMessage("Sync failed. Check server logs.");
+      setSyncResultMessage("Failed to publish changes.");
     } finally {
       setIsSyncing(false);
     }
@@ -113,13 +111,12 @@ export default function AdminNavbar() {
       const response = await fetch("/api/admin/reset-system", { method: "POST" });
       const data = await response.json();
       if (!response.ok || !data?.ok) {
-        setResetResultMessage(data?.error || "Reset failed. Check server logs.");
+        setResetResultMessage("Failed to clean changes.");
         return;
       }
-      const logsPreview = data.logs?.slice(-10).join("\n") || "Reset completed successfully.";
-      setResetResultMessage(`Reset completed successfully.\n\nLast logs:\n${logsPreview}`);
+      setResetResultMessage("Changes cleaned successfully.");
     } catch (error) {
-      setResetResultMessage("Reset failed. Check server logs.");
+      setResetResultMessage("Failed to clean changes.");
     } finally {
       setIsResetting(false);
     }
@@ -155,7 +152,7 @@ export default function AdminNavbar() {
             disabled={isSyncing || isResetting}
             className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2 text-sm font-medium text-[var(--admin-text)] transition hover:bg-[var(--admin-surface-hover)] disabled:opacity-50"
           >
-            {isSyncing ? "Syncing..." : "Sync Database"}
+            {isSyncing ? "Publishing..." : "Publish Changes"}
           </button>
           <button
             type="button"
@@ -163,7 +160,7 @@ export default function AdminNavbar() {
             disabled={isSyncing || isResetting}
             className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-50"
           >
-            {isResetting ? "Resetting..." : "Reset System"}
+            {isResetting ? "Cleaning..." : "Clean Changes"}
           </button>
         </div>
 
@@ -259,18 +256,18 @@ export default function AdminNavbar() {
         }}
         title={
           isSyncing
-            ? "Synchronizing Database"
+            ? "Publishing Changes"
             : syncResultMessage
-              ? "Synchronization Result"
-              : "Confirm Migration"
+              ? "Publication Result"
+              : "Confirm Publication"
         }
         message={
           isSyncing
-            ? "Please wait while we synchronize data to the main database."
+            ? "Please wait while we publish changes to the main database."
             : syncResultMessage ? (
               <div className="whitespace-pre-wrap text-sm">{syncResultMessage}</div>
             ) : (
-              "Esta seguro que quiere empezar la migracion"
+              "Are you sure you want to publish the changes?"
             )
         }
         confirmText={syncResultMessage ? "Close" : "Start"}
@@ -297,21 +294,21 @@ export default function AdminNavbar() {
         }}
         title={
           isResetting
-            ? "Resetting System"
+            ? "Cleaning Changes"
             : resetResultMessage
-              ? "Reset Result"
-              : "Confirm System Reset"
+              ? "Clean Result"
+              : "Confirm Clean Changes"
         }
         message={
           isResetting
-            ? "Please wait while we reset Base 2 to match Base 1. This will delete images from Cloudinary that are not in Base 1."
+            ? "Please wait while we clean changes and reset Base 2 to match Base 1."
             : resetResultMessage ? (
               <div className="whitespace-pre-wrap text-sm">{resetResultMessage}</div>
             ) : (
-              "Are you sure you want to reset the system? This will make Base 2 identical to Base 1 (main). Images in Base 2 that are not in Base 1 will be deleted from Cloudinary."
+              "Are you sure you want to delete all changes?"
             )
         }
-        confirmText={resetResultMessage ? "Close" : "Reset"}
+        confirmText={resetResultMessage ? "Close" : "Clean"}
         cancelText="Cancel"
         showActions={!isResetting}
         isLoading={isResetting}

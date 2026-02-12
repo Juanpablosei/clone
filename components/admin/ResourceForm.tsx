@@ -76,7 +76,7 @@ export default function ResourceForm({
   };
 
   const uploadFileInChunks = async (file: File): Promise<string> => {
-    const CHUNK_SIZE = 1024 * 1024; // 1MB por chunk
+    const CHUNK_SIZE = 100 * 1024; // 100KB por chunk
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     const uploadId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
@@ -172,7 +172,10 @@ export default function ResourceForm({
       // Si hay un archivo nuevo (documento), subirlo primero en chunks
       if (documentFile) {
         try {
-          fileUrl = await uploadFileInChunks(documentFile);
+          const uploadedPath = await uploadFileInChunks(documentFile);
+          // Asegurar que usamos el path retornado por el servidor (con UUID)
+          fileUrl = uploadedPath;
+          console.log("File uploaded, using path:", fileUrl);
         } catch (uploadError) {
           const errorMessage = uploadError instanceof Error ? uploadError.message : "Error uploading file. Please try again.";
           setError(errorMessage);
@@ -226,14 +229,17 @@ export default function ResourceForm({
       }
 
       const method = formData.id ? "PUT" : "POST";
+      // Asegurar que fileUrl es el path con UUID generado por el servidor, no el nombre original
+      const payload = {
+        ...formData,
+        fileUrl, // Este es el path con UUID retornado por uploadFileInChunks
+        image: imageUrl,
+      };
+      console.log("Saving resource with fileUrl:", payload.fileUrl);
       const response = await fetch("/api/admin/resources", {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          fileUrl,
-          image: imageUrl,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
