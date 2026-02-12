@@ -22,8 +22,8 @@ const CONTENT_TABLES = [
   "advisory_page",
 ] as const;
 
-// Solo news hace mirror delete por requerimiento actual.
-const DELETE_MIRROR_TABLES = new Set<string>(["news"]);
+// Mirror delete para noticias y sus bloques (seccion editorial).
+const DELETE_MIRROR_TABLES = new Set<string>(["news", "news_blocks"]);
 
 const DB_SOURCE = process.env.DATABASE_URL_TARGET; // Base 2 (editor)
 const DB_TARGET = process.env.DATABASE_URL; // Base 1 (main)
