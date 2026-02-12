@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+:root {
+  --background: white; /* fondo blanco puro */
+  --foreground: #2d2d2d;
+  --primary: #5b7dd6; /* azul corporativo de Gradient */
+  --primary-strong: #4a6bc4;
+  --surface: #ffffff;
+  --muted: #4a5568;
+  --border: #e5e7eb;
+  
+  /* Admin panel colors - based on primary */
+  --admin-bg: #ffffff; /* fondo blanco para admin */
+  --admin-surface: #ffffff;
+  --admin-surface-hover: #e6f2ff; /* superficie con hover basada en primario */
+  --admin-border: #b3d9ff; /* borde basado en primario */
+  --admin-text: #2d2d2d;
+  --admin-text-muted: #4a5568;
+  --admin-primary-light: #d6ebff; /* primario muy claro */
+  --admin-primary-lighter: #e6f2ff; /* primario aún más claro */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-strong: var(--primary-strong);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  
+  /* Admin colors */
+  --color-admin-bg: var(--admin-bg);
+  --color-admin-surface: var(--admin-surface);
+  --color-admin-surface-hover: var(--admin-surface-hover);
+  --color-admin-border: var(--admin-border);
+  --color-admin-text: var(--admin-text);
+  --color-admin-text-muted: var(--admin-text-muted);
+  --color-admin-primary-light: var(--admin-primary-light);
+  --color-admin-primary-lighter: var(--admin-primary-lighter);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+html {
+  background: var(--background);
+}
+
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-scroll {
+  animation: scroll 90s linear infinite;
+}
+
+/* Admin background pattern */
+.admin-bg-pattern {
+  background-image: 
+    linear-gradient(45deg, rgba(55, 128, 205, 0.03) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(55, 128, 205, 0.03) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(55, 128, 205, 0.03) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(55, 128, 205, 0.03) 75%);
+  background-size: 40px 40px;
+  background-position: 0 0, 0 20px, 20px -20px, -20px 0px;
+}
+
+/* Reveal on scroll (used across the home page) */
+.reveal {
+  opacity: 0;
+  transition: opacity 1.8s ease-in-out, transform 1.8s ease-in-out;
+  will-change: opacity, transform;
+}
+
+.reveal-up {
+  transform: translate3d(0, 32px, 0);
+}
+
+.reveal-left {
+  transform: translate3d(-32px, 0, 0);
+}
+
+.reveal-right {
+  transform: translate3d(32px, 0, 0);
+}
+
+.reveal-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* Custom scrollbar with primary color */
+.scrollbar-primary::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-primary::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-primary::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 4px;
+}
+
+.scrollbar-primary::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-strong);
+}
+
+/* Firefox scrollbar */
+.scrollbar-primary {
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+}
+
+/* Embla Carousel smooth transitions */
+.embla {
+  overflow: hidden;
+}
+
+.embla__container {
+  display: flex;
+  will-change: transform;
+  transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  backface-visibility: hidden;
+}
+
+.embla__slide {
+  flex: 0 0 auto;
+  min-width: 0;
+  backface-visibility: hidden;
+}

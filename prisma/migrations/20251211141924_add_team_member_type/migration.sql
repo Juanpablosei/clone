@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "TeamMemberType" AS ENUM ('OUR_TEAM', 'FELLOWS', 'BOARD', 'ADVISORY_BOARD', 'RESEARCH_STUDENT_AFFILIATES');
+
+-- AlterTable
+ALTER TABLE "team_members" ADD COLUMN     "type" "TeamMemberType" NOT NULL DEFAULT 'OUR_TEAM';

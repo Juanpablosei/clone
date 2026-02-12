@@ -1,0 +1,432 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum TeamMemberType {
+  OUR_TEAM
+  FELLOWS
+  BOARD
+  ADVISORY_BOARD
+  RESEARCH_STUDENT_AFFILIATES
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      UserRole @default(EDITOR)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  sessions  Session[]
+  accounts  Account[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Author {
+  id          String   @id @default(cuid())
+  name        String
+  image       String
+  description String?  @db.Text
+  linkedin    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  news        News[]
+
+  @@map("authors")
+}
+
+model News {
+  id            String      @id @default(cuid())
+  title         String
+  date          DateTime    @default(now())
+  type          String
+  url           String?      @unique
+  authorId      String?
+  author        Author?     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  // Campos legacy (para compatibilidad durante migración)
+  image         String?
+  images        String[]    // Array de URLs de imágenes
+  summary       String?     @db.Text
+  content       String?     @db.Text
+  
+  // Nueva relación con bloques
+  blocks        NewsBlock[]
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("news")
+}
+
+model NewsBlock {
+  id            String   @id @default(cuid())
+  newsId        String
+  news          News     @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  type          String   // "summary", "image", "gallery", "content", "video", "quote", "divider"
+  order         Int      // Orden de aparición del bloque
+  content       String?  @db.Text // Para texto/contenido HTML
+  imageUrl      String?  // Para bloques de imagen individual
+  images        String[] // Para galerías (array de URLs)
+  metadata      Json?    // Datos adicionales flexibles (alt text, captions, etc.)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("news_blocks")
+  @@index([newsId, order])
+}
+
+model Partner {
+  id          String   @id @default(cuid())
+  name        String
+  image       String
+  url         String?
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("partners")
+}
+
+model Worked {
+  id          String   @id @default(cuid())
+  name        String
+  image       String
+  url         String?
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("worked")
+}
+
+model TeamMember {
+  id          String         @id @default(cuid())
+  name        String
+  role        String         // Cargo
+  type        TeamMemberType @default(OUR_TEAM)
+  image       String
+  description String?        @db.Text
+  slug        String         @unique
+  linkedin    String?
+  x           String?
+  url         String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@map("team_members")
+}
+
+model SiteConfig {
+  id        String   @id @default("site-config")
+  logo      String?
+  email     String?
+  linkedin  String?
+  twitter   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("site_config")
+}
+
+model ResourceDownload {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  resourceTitle String
+  createdAt DateTime @default(now())
+
+  @@map("resource_downloads")
+}
+
+model Resource {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  fileUrl     String
+  fileType    String   // "PDF", "Tool", "Resource Pack", etc.
+  tags        String[] // Array de tags como ["Policy", "Technical"]
+  image       String?
+  requireEmail Boolean  @default(false) // Si es true, requiere email para descargar
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("resources")
+}
+
+model AboutUsPage {
+  id        String   @id @default("about-us-page")
+  
+  // Hero section
+  heroTitle    String
+  heroSubtitle String  @db.Text
+  
+  // Mission Section
+  missionImage     String
+  missionLabel     String
+  missionTitle     String
+  missionContent   String  @db.Text
+  
+  // Approach Section
+  approachImage    String
+  approachLabel    String
+  approachTitle    String
+  approachContent  String  @db.Text
+  
+  // History Section
+  historyImage     String
+  historyLabel     String
+  historyTitle     String
+  historyContent   String  @db.Text
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("about_us_page")
+}
+
+// Testimonios / Success stories: carrusel About Us + página completa /success-stories/[slug]
+model AboutUsTestimonial {
+  id        String   @id @default(cuid())
+  // Carrusel (About Us)
+  image     String   // Imagen del testimonio (lado izquierdo)
+  imageAlt  String?
+  category  String
+  headline  String
+  ctaText   String   // Ej: "Read Full Story"
+  order     Int      @default(0)
+  // Página dinámica /success-stories/[slug]
+  slug      String   @unique // URL: /success-stories/{slug}
+  summary   String   @db.Text
+  industry  String?  // Ej: "LIFE SCIENCES & HEALTH CARE"
+  heroImage String?  // Imagen hero de la página (si vacío se usa image)
+  heroImageAlt String?
+  highlightedWord String? // Palabra a destacar en verde en el headline
+  metric    String?  // Ej: "1.6x"
+  metricDescription String? @db.Text
+  sections  Json?    // [{ title: string, content: string }, ...]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("about_us_testimonials")
+}
+
+model HomePage {
+  id        String   @id @default("home-page")
+  
+  // Header Section
+  headerTitle    String
+  headerSubtitle String  @db.Text
+  
+  // About Section
+  aboutBadge     String
+  aboutTitle     String
+  aboutDescription String  @db.Text
+  aboutImage     String
+  
+  // About Section Features (3 características)
+  feature1Title  String
+  feature1Description String  @db.Text
+  feature2Title  String
+  feature2Description String  @db.Text
+  feature3Title  String
+  feature3Description String  @db.Text
+  
+  // HomeWhatWeDo Section
+  whatWeDoTitle  String
+  whatWeDoDescription String  @db.Text
+  
+  // HomeWhatWeDo Cards (3 cards)
+  card1Title     String
+  card1Description String  @db.Text
+  card1Link     String
+  card2Title     String
+  card2Description String  @db.Text
+  card2Link     String
+  card3Title     String
+  card3Description String  @db.Text
+  card3Link     String
+  
+  // CTA Section
+  ctaText        String  @db.Text
+  ctaButtonText  String
+  
+  // PartnersSection
+  partnersImage     String?
+  partnersTitle     String?
+  partnersDescription String?  @db.Text
+  partnersCtaText   String?
+  partnersCtaLink   String?
+  partnersSubtitle  String?
+  
+  // ServiceSlideNewSection
+  serviceImage   String?
+  serviceImageAlt String?
+  
+  // TestimonialsSection
+  testimonialsBadge String?
+  testimonialsTitle String?
+  testimonial1Quote String?  @db.Text
+  testimonial1Author String?
+  testimonial1Organization String?
+  testimonial2Quote String?  @db.Text
+  testimonial2Author String?
+  testimonial2Organization String?
+  testimonial3Quote String?  @db.Text
+  testimonial3Author String?
+  testimonial3Organization String?
+  testimonial4Quote String?  @db.Text
+  testimonial4Author String?
+  testimonial4Organization String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("home_page")
+}
+
+model EducationPage {
+  id        String   @id @default("education-page")
+  
+  // IntroSection (shared component)
+  introBadge      String?
+  introTitle      String?
+  introDescription String?  @db.Text
+  accordionItems  Json?    // Array of { title: string, content?: string }
+  features        Json?    // Array of strings
+  
+  // ImageContentSection (shared component)
+  contentImage     String?
+  contentImageAlt  String?
+  contentBadge     String?
+  contentTitle     String?
+  contentDescription String?  @db.Text
+  iconType         String?    // "chart", "growth", etc.
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("education_page")
+}
+
+model ResearchPublicationsPage {
+  id        String   @id @default("research-publications-page")
+  
+  // IntroSection (shared component)
+  introBadge       String?
+  introTitle       String?
+  introDescription String?  @db.Text
+  accordionItems   Json?    // Array of { title: string, content?: string }
+  features         Json?    // Array of strings
+  
+  // ImageContentSection (shared component)
+  contentImage      String?
+  contentImageAlt   String?
+  contentBadge      String?
+  contentTitle      String?
+  contentDescription String?  @db.Text
+  iconType          String?    // "chart", "growth", etc.
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("research_publications_page")
+}
+
+model AdvisoryPage {
+  id        String   @id @default("advisory-page")
+
+  heroTitle        String?   // Título del Hero (ej. "Advisory & Guidance")
+
+  // IntroSection (shared component)
+  introBadge       String?
+  introTitle       String?
+  introDescription String?  @db.Text
+  accordionItems   Json?    // Array of { title: string, content?: string }
+  features         Json?    // Array of strings
+
+  // ImageContentSection (shared component)
+  contentImage      String?
+  contentImageAlt   String?
+  contentBadge      String?
+  contentTitle      String?
+  contentDescription String?  @db.Text
+  iconType          String?    // "chart", "growth", etc.
+
+  // AdvisorySection (services cards)
+  advisorySectionTitle     String?
+  advisoryIntro1           String?  @db.Text
+  advisoryIntro2Before     String?  @db.Text
+  advisoryTermsLinkText    String?
+  advisoryTermsLinkHref    String?
+  advisoryIntro2After      String?  @db.Text
+  advisoryCard1Title       String?
+  advisoryCard1Description String?  @db.Text
+  advisoryCard1ExampleQ    String?  @db.Text
+  advisoryCard1Expert      String?  @db.Text
+  advisoryCard1Format      String?  @db.Text
+  advisoryCard1CtaText     String?
+  advisoryCard1CtaUrl      String?
+  advisoryCard2Title       String?
+  advisoryCard2Description String?  @db.Text
+  advisoryCard2Ongoing     String?  @db.Text
+  advisoryCard2DeepDive   String?  @db.Text
+  advisoryCard2Benchmarks  String?  @db.Text
+  advisoryCard2CtaText     String?
+  advisoryCard2CtaLink     String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("advisory_page")
+}
