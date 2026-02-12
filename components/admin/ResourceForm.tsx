@@ -29,6 +29,8 @@ export default function ResourceForm({
   const [error, setError] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [formData, setFormData] = useState({
     id: resource?.id || "",
     title: resource?.title || "",
@@ -60,6 +62,73 @@ export default function ResourceForm({
     setDocumentFile(file);
     if (!file) {
       setFormData((prev) => ({ ...prev, fileUrl: "" }));
+      setUploadProgress(0);
+      return;
+    }
+
+    // Validar tamaño máximo de 10MB
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_SIZE) {
+      setError(`File size must be less than ${MAX_SIZE / 1024 / 1024}MB`);
+      setDocumentFile(null);
+      return;
+    }
+  };
+
+  const uploadFileInChunks = async (file: File): Promise<string> => {
+    const CHUNK_SIZE = 1024 * 1024; // 1MB por chunk
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const uploadId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
+    setIsUploadingDocument(true);
+    setUploadProgress(0);
+
+    try {
+      // Enviar cada chunk secuencialmente
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
+
+        const chunkFormData = new FormData();
+        chunkFormData.append("chunk", chunk);
+        chunkFormData.append("chunkIndex", chunkIndex.toString());
+        chunkFormData.append("totalChunks", totalChunks.toString());
+        chunkFormData.append("uploadId", uploadId);
+        chunkFormData.append("fileName", file.name);
+        chunkFormData.append("mimeType", file.type);
+        chunkFormData.append("fileSize", file.size.toString());
+
+        const response = await fetch("/api/admin/upload-resource-chunk", {
+          method: "POST",
+          body: chunkFormData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+          throw new Error(errorData.error || "Error uploading chunk");
+        }
+
+        const data = await response.json();
+
+        // Si el servidor retorna el path, significa que todos los chunks fueron recibidos
+        if (data.path) {
+          setUploadProgress(100);
+          setIsUploadingDocument(false);
+          return data.path;
+        }
+
+        // Actualizar progreso
+        if (data.progress !== undefined) {
+          setUploadProgress(data.progress);
+        }
+      }
+
+      throw new Error("Upload completed but no file path returned");
+    } catch (error) {
+      setIsUploadingDocument(false);
+      setUploadProgress(0);
+      throw error;
     }
   };
 
@@ -100,32 +169,13 @@ export default function ResourceForm({
       let fileUrl = formData.fileUrl;
       let imageUrl = formData.image;
 
-      // Si hay un archivo nuevo (documento), subirlo primero
+      // Si hay un archivo nuevo (documento), subirlo primero en chunks
       if (documentFile) {
-        const formDataUpload = new FormData();
-        formDataUpload.append("file", documentFile);
-        formDataUpload.append("folder", "resources");
-        // Para documentos, usar el nombre del archivo como slug base
-        const fileNameWithoutExt = documentFile.name.replace(/\.[^/.]+$/, "");
-        formDataUpload.append("slug", fileNameWithoutExt);
-
-        const uploadResponse = await fetch("/api/admin/upload", {
-          method: "POST",
-          body: formDataUpload,
-        });
-
-        if (uploadResponse.ok) {
-          const uploadData = await uploadResponse.json();
-          if (uploadData.path) {
-            fileUrl = uploadData.path;
-          } else {
-            setError("Error: No file URL returned from upload");
-            setFormLoading(false);
-            return;
-          }
-        } else {
-          const errorData = await uploadResponse.json().catch(() => ({ error: "Unknown error" }));
-          setError(errorData.error || "Error uploading file. Please try again.");
+        try {
+          fileUrl = await uploadFileInChunks(documentFile);
+        } catch (uploadError) {
+          const errorMessage = uploadError instanceof Error ? uploadError.message : "Error uploading file. Please try again.";
+          setError(errorMessage);
           setFormLoading(false);
           return;
         }
@@ -266,18 +316,47 @@ export default function ResourceForm({
         </div>
 
         <div>
-          <ImageUpload
-            value={formData.fileUrl || null}
-            onChange={handleDocumentChange}
-            onFileSelect={handleDocumentFileSelect}
-            folder="resources"
-            slug={formData.title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-")}
-            label="Document (PDF, Word, Excel)"
-            required={!formData.id}
-            error={error}
-            autoUpload={false}
-            previewSize="lg"
+          <label className="mb-1 block text-xs font-medium text-[var(--admin-text)]">
+            Document (PDF, Word, Excel) <span className="text-red-500">*</span>
+            {documentFile && (
+              <span className="ml-2 text-xs text-[var(--admin-text-muted)]">
+                ({(documentFile.size / 1024 / 1024).toFixed(2)} MB, max 10MB)
+              </span>
+            )}
+          </label>
+          <input
+            type="file"
+            accept="application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+            onChange={(e) => {
+              const file = e.target.files?.[0] || null;
+              handleDocumentFileSelect(file);
+            }}
+            className="w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text)] transition focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
           />
+          {formData.fileUrl && !documentFile && (
+            <div className="mt-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
+              <p className="text-sm text-[var(--admin-text)]">
+                Current file: {formData.fileUrl.split("/").pop()}
+              </p>
+            </div>
+          )}
+          {isUploadingDocument && (
+            <div className="mt-2">
+              <div className="mb-1 flex items-center justify-between text-xs text-[var(--admin-text-muted)]">
+                <span>Uploading...</span>
+                <span>{Math.round(uploadProgress)}%</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--admin-border)]">
+                <div
+                  className="h-full bg-primary transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+          {error && documentFile && (
+            <p className="mt-1 text-xs text-red-600">{error}</p>
+          )}
         </div>
 
         <div>

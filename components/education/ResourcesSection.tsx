@@ -60,7 +60,25 @@ export default function ResourcesSection() {
   });
 
   const triggerForcedDownload = (resource: Resource) => {
-    window.open(resource.fileUrl, "_blank");
+    // Solo descargar si el archivo está en /resources/ (carpeta pública)
+    if (!resource.fileUrl.startsWith("/resources/")) {
+      console.warn("Resource file URL is not local:", resource.fileUrl);
+      // Si es una URL antigua de Cloudinary, mostrar mensaje o simplemente no hacer nada
+      alert("Este recurso necesita ser actualizado. Por favor, contacte al administrador.");
+      return;
+    }
+
+    // Extraer nombre del archivo de la URL
+    const fileName = resource.fileUrl.split("/").pop() || resource.title || "resource";
+    
+    // Usar el endpoint de descarga para forzar descarga desde la carpeta pública
+    const downloadUrl = `/api/download-resource?url=${encodeURIComponent(resource.fileUrl)}&filename=${encodeURIComponent(fileName)}`;
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleDownloadClick = (resource: Resource) => {

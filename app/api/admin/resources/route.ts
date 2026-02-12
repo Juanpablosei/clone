@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
+import { unlink } from "fs/promises";
+import { join } from "path";
+import { existsSync } from "fs";
 
 export async function GET() {
   const session = await auth();
@@ -86,6 +89,11 @@ export async function PUT(request: Request) {
       );
     }
 
+    // Obtener el recurso actual para comparar fileUrl
+    const currentResource = await prisma.resource.findUnique({
+      where: { id: data.id },
+    });
+
     const resource = await prisma.resource.update({
       where: { id: data.id },
       data: {
@@ -98,6 +106,27 @@ export async function PUT(request: Request) {
         requireEmail: data.requireEmail || false,
       },
     });
+
+    // Si el fileUrl cambió y el anterior estaba en public/resources, borrarlo
+    if (
+      currentResource?.fileUrl &&
+      currentResource.fileUrl !== data.fileUrl &&
+      currentResource.fileUrl.startsWith("/resources/")
+    ) {
+      const fileName = currentResource.fileUrl.split("/").pop();
+      if (fileName) {
+        const filePath = join(process.cwd(), "public", "resources", fileName);
+        try {
+          if (existsSync(filePath)) {
+            await unlink(filePath);
+            console.log(`Deleted old file: ${filePath}`);
+          }
+        } catch (fileError) {
+          console.error(`Error deleting old file ${filePath}:`, fileError);
+          // No fallar si no se puede borrar el archivo
+        }
+      }
+    }
 
     return NextResponse.json(resource);
   } catch (error: any) {
@@ -124,6 +153,11 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 });
     }
 
+    // Obtener el recurso antes de eliminarlo para borrar el archivo físico
+    const resource = await prisma.resource.findUnique({
+      where: { id },
+    });
+
     const deleted = await prisma.resource.deleteMany({
       where: { id },
     });
@@ -131,6 +165,23 @@ export async function DELETE(request: Request) {
     if (deleted.count === 0) {
       // Delete idempotente: si ya no existe, no romper UI.
       return NextResponse.json({ success: true, alreadyDeleted: true });
+    }
+
+    // Si el archivo está en public/resources, borrarlo también
+    if (resource?.fileUrl && resource.fileUrl.startsWith("/resources/")) {
+      const fileName = resource.fileUrl.split("/").pop();
+      if (fileName) {
+        const filePath = join(process.cwd(), "public", "resources", fileName);
+        try {
+          if (existsSync(filePath)) {
+            await unlink(filePath);
+            console.log(`Deleted file: ${filePath}`);
+          }
+        } catch (fileError) {
+          console.error(`Error deleting file ${filePath}:`, fileError);
+          // No fallar si no se puede borrar el archivo
+        }
+      }
     }
 
     return NextResponse.json({ success: true });
