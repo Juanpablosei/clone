@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { CredentialsSignin } from "next-auth";
 import { prismaAuth } from "./prisma-auth";
 import bcrypt from "bcryptjs";
 
@@ -16,31 +17,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const user = await prismaAuth.user.findUnique({
-          where: {
-            email: credentials.email as string,
-          },
-        });
+        try {
+          const user = await prismaAuth.user.findUnique({
+            where: {
+              email: credentials.email as string,
+            },
+          });
 
-        if (!user) {
+          if (!user) {
+            return null;
+          }
+
+          if ("active" in user && user.active === false) {
+            throw new CredentialsSignin("Tu cuenta está desactivada. Contacta al administrador.");
+          }
+
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password as string,
+            user.password
+          );
+
+          if (!isPasswordValid) {
+            return null;
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          };
+        } catch (err) {
+          if (err instanceof CredentialsSignin) throw err;
+          console.error("[auth] authorize error:", err);
           return null;
         }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        };
       },
     }),
   ],

@@ -25,7 +25,11 @@ export default function LoginForm() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        const msg =
+          result.error === "CredentialsSignin"
+            ? "Correo o contraseña incorrectos, o la cuenta está desactivada."
+            : "Error al iniciar sesión. Intenta de nuevo.";
+        setError(msg);
         setLoading(false);
       } else if (result?.ok) {
         router.push("/admin");

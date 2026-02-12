@@ -19,6 +19,7 @@ async function main() {
       password: hashedPassword,
       name: "Admin User",
       role: "ADMIN",
+      active: true,
     },
   });
 
@@ -35,6 +36,7 @@ async function main() {
       password: editorPassword,
       name: "Editor User",
       role: "EDITOR",
+      active: true,
     },
   });
 
@@ -51,6 +53,7 @@ async function main() {
       password: viewerPassword,
       name: "Viewer User",
       role: "VIEWER",
+      active: true,
     },
   });
 
