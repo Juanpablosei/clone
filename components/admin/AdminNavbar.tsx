@@ -76,6 +76,9 @@ export default function AdminNavbar() {
   const [isSyncConfirmOpen, setIsSyncConfirmOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResultMessage, setSyncResultMessage] = useState("");
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetResultMessage, setResetResultMessage] = useState("");
   const isAdmin = session?.user?.role === "ADMIN";
   const visibleNavItems = navItems.filter(
     (item) => (item.href !== "/admin/config" && item.href !== "/admin/email") || isAdmin
@@ -102,6 +105,26 @@ export default function AdminNavbar() {
     }
   };
 
+  const handleResetSystem = async () => {
+    if (isResetting) return;
+    setIsResetting(true);
+    setResetResultMessage("");
+    try {
+      const response = await fetch("/api/admin/reset-system", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok || !data?.ok) {
+        setResetResultMessage(data?.error || "Reset failed. Check server logs.");
+        return;
+      }
+      const logsPreview = data.logs?.slice(-10).join("\n") || "Reset completed successfully.";
+      setResetResultMessage(`Reset completed successfully.\n\nLast logs:\n${logsPreview}`);
+    } catch (error) {
+      setResetResultMessage("Reset failed. Check server logs.");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   return (
     <nav className="border-b border-[var(--admin-border)] bg-[var(--admin-surface)]">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between px-6 py-4">
@@ -125,14 +148,22 @@ export default function AdminNavbar() {
             })}
         </div>
 
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center gap-2">
           <button
             type="button"
             onClick={() => setIsSyncConfirmOpen(true)}
-            disabled={isSyncing}
-            className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2 text-sm font-medium text-[var(--admin-text)] transition hover:bg-[var(--admin-surface-hover)]"
+            disabled={isSyncing || isResetting}
+            className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2 text-sm font-medium text-[var(--admin-text)] transition hover:bg-[var(--admin-surface-hover)] disabled:opacity-50"
           >
             {isSyncing ? "Syncing..." : "Sync Database"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsResetConfirmOpen(true)}
+            disabled={isSyncing || isResetting}
+            className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-50"
+          >
+            {isResetting ? "Resetting..." : "Reset System"}
           </button>
         </div>
 
@@ -236,13 +267,56 @@ export default function AdminNavbar() {
         message={
           isSyncing
             ? "Please wait while we synchronize data to the main database."
-            : syncResultMessage || "Esta seguro que quiere empezar la migracion"
+            : syncResultMessage ? (
+              <div className="whitespace-pre-wrap text-sm">{syncResultMessage}</div>
+            ) : (
+              "Esta seguro que quiere empezar la migracion"
+            )
         }
         confirmText={syncResultMessage ? "Close" : "Start"}
         cancelText="Cancel"
         showActions={!isSyncing}
         isLoading={isSyncing}
         disableClose={isSyncing}
+      />
+
+      <ConfirmModal
+        isOpen={isResetConfirmOpen}
+        onClose={() => {
+          if (isResetting) return;
+          setIsResetConfirmOpen(false);
+          setResetResultMessage("");
+        }}
+        onConfirm={() => {
+          if (resetResultMessage) {
+            setIsResetConfirmOpen(false);
+            setResetResultMessage("");
+            return;
+          }
+          handleResetSystem();
+        }}
+        title={
+          isResetting
+            ? "Resetting System"
+            : resetResultMessage
+              ? "Reset Result"
+              : "Confirm System Reset"
+        }
+        message={
+          isResetting
+            ? "Please wait while we reset Base 2 to match Base 1. This will delete images from Cloudinary that are not in Base 1."
+            : resetResultMessage ? (
+              <div className="whitespace-pre-wrap text-sm">{resetResultMessage}</div>
+            ) : (
+              "Are you sure you want to reset the system? This will make Base 2 identical to Base 1 (main). Images in Base 2 that are not in Base 1 will be deleted from Cloudinary."
+            )
+        }
+        confirmText={resetResultMessage ? "Close" : "Reset"}
+        cancelText="Cancel"
+        showActions={!isResetting}
+        isLoading={isResetting}
+        disableClose={isResetting}
+        confirmColor="danger"
       />
     </nav>
   );

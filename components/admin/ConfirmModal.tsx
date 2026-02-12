@@ -1,11 +1,13 @@
 "use client";
 
+import React from "react";
+
 interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
   title: string;
-  message: string;
+  message: string | React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   confirmColor?: "primary" | "danger";
@@ -44,7 +46,9 @@ export default function ConfirmModal({
       {/* Modal */}
       <div className="relative z-10 w-full max-w-md rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-xl">
         <h3 className="mb-2 text-xl font-semibold text-[var(--admin-text)]">{title}</h3>
-        <p className="mb-6 text-sm text-[var(--admin-text-muted)]">{message}</p>
+        <div className="mb-6 text-sm text-[var(--admin-text-muted)]">
+          {typeof message === "string" ? <p>{message}</p> : message}
+        </div>
 
         {isLoading && (
           <div className="mb-6 flex items-center gap-3 rounded-lg bg-[var(--admin-bg)] px-4 py-3">
