@@ -93,6 +93,7 @@ export default function AdvisoryAdminPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [pendingContentImageFile, setPendingContentImageFile] = useState<File | null>(null);
   const [formData, setFormData] = useState<AdvisoryPageData>(DEFAULT_DATA);
 
   useEffect(() => {
@@ -148,12 +149,45 @@ export default function AdvisoryAdminPage() {
     setSuccess(false);
     setSaving(true);
     try {
+      let contentImageUrl = formData.contentImage || null;
+
+      if (pendingContentImageFile) {
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", pendingContentImageFile);
+        formDataUpload.append("folder", IMAGE_FOLDER);
+        formDataUpload.append("slug", IMAGE_SLUG);
+        if (formData.contentImage) {
+          formDataUpload.append("previousUrl", formData.contentImage);
+        }
+
+        const uploadResponse = await fetch("/api/admin/upload", {
+          method: "POST",
+          body: formDataUpload,
+        });
+
+        if (!uploadResponse.ok) {
+          const data = await uploadResponse.json().catch(() => ({}));
+          setError(data.error || "Error uploading content image");
+          return;
+        }
+
+        const uploadData = await uploadResponse.json();
+        contentImageUrl = uploadData.path || contentImageUrl;
+      }
+
+      const payload = {
+        ...formData,
+        contentImage: contentImageUrl,
+      };
+
       const res = await fetch(API, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
+        setFormData(payload);
+        setPendingContentImageFile(null);
         setSuccess(true);
         setTimeout(() => setSuccess(false), 3000);
       } else {
@@ -364,10 +398,11 @@ export default function AdvisoryAdminPage() {
                     <ImageUpload
                       value={formData.contentImage}
                       onChange={(url) => setFormData({ ...formData, contentImage: url ?? null })}
+                      onFileSelect={(file) => setPendingContentImageFile(file)}
                       folder={IMAGE_FOLDER}
                       slug={IMAGE_SLUG}
                       className="text-white"
-                      autoUpload
+                      autoUpload={false}
                       previewSize="xl"
                     />
                   </div>
@@ -377,9 +412,10 @@ export default function AdvisoryAdminPage() {
                   <ImageUpload
                     value={null}
                     onChange={(url) => setFormData({ ...formData, contentImage: url ?? null })}
+                    onFileSelect={(file) => setPendingContentImageFile(file)}
                     folder={IMAGE_FOLDER}
                     slug={IMAGE_SLUG}
-                    autoUpload
+                    autoUpload={false}
                     previewSize="xl"
                   />
                 </div>
