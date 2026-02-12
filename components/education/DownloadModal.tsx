@@ -18,52 +18,21 @@ export default function DownloadModal({
 }: DownloadModalProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim() || !email.trim()) {
       return;
     }
 
-    setIsSubmitting(true);
-    
-    try {
-      const response = await fetch("/api/resource-downloads", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim(),
-          resourceTitle: resource.title,
-        }),
-      });
-
-      if (response.ok) {
-        onSubmit(name, email);
-        setName("");
-        setEmail("");
-      } else {
-        console.error("Error saving download");
-        // Aún permitir la descarga aunque falle el guardado
-        onSubmit(name, email);
-        setName("");
-        setEmail("");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      // Aún permitir la descarga aunque falle el guardado
-      onSubmit(name, email);
-      setName("");
-      setEmail("");
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Importante: disparar onSubmit directamente desde el evento del usuario
+    // para evitar que el navegador bloquee window.open por popup policy.
+    onSubmit(name.trim(), email.trim());
+    setName("");
+    setEmail("");
   };
 
   return (
@@ -148,10 +117,10 @@ export default function DownloadModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !name.trim() || !email.trim()}
+              disabled={!name.trim() || !email.trim()}
               className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-strong disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isSubmitting ? "Processing..." : "Download"}
+              Download
             </button>
           </div>
         </form>

@@ -28,6 +28,26 @@ const CONTENT_TABLES = [
   "advisory_page",
 ] as const;
 
+function detectCloudinaryResourceType(mimetype: string, originalName = ""): "raw" | "image" | "video" {
+  const ext = (originalName.split(".").pop() || "").toLowerCase();
+
+  if (
+    mimetype === "application/pdf" ||
+    mimetype.includes("officedocument") ||
+    mimetype.includes("msword") ||
+    mimetype.includes("excel") ||
+    mimetype.includes("powerpoint") ||
+    ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "zip", "rar"].includes(ext)
+  ) {
+    return "raw";
+  }
+
+  if (mimetype.startsWith("image/")) return "image";
+  if (mimetype.startsWith("video/")) return "video";
+
+  return "raw";
+}
+
 function extractPublicId(url: string): string | null {
   if (!url || !url.includes("res.cloudinary.com")) return null;
   const urlParts = url.split("/");
@@ -126,10 +146,6 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Convertir buffer a base64
-    const base64 = buffer.toString("base64");
-    const dataURI = `data:${file.type};base64,${base64}`;
-
     // Generar un public_id único y más corto para evitar conflictos
     // Para documentos PDF, priorizar el nombre del archivo sobre el slug
     // IMPORTANTE: Para documentos raw en Cloudinary, el public_id debe incluir la extensión
@@ -186,13 +202,13 @@ export async function POST(request: Request) {
       resource_type: isDocument ? "raw" : "auto",
     });
 
-    // Determinar resource_type para Cloudinary
-    const resourceType = isDocument ? "raw" : "auto";
+    // Determinar resource_type explícito para evitar falsos positivos con "auto".
+    const resourceType = detectCloudinaryResourceType(file.type, file.name);
 
-    // Subir a Cloudinary
+    // Subir a Cloudinary usando stream binario.
+    // Esto evita archivos corruptos en documentos (PDF/Word/Excel) con resource_type=raw.
     const uploadResult = await new Promise((resolve, reject) => {
-      cloudinary.uploader.upload(
-        dataURI,
+      const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder: `gradient/${folder}`,
           public_id: uniquePublicId,
@@ -208,6 +224,7 @@ export async function POST(request: Request) {
           }
         }
       );
+      uploadStream.end(buffer);
     });
 
     interface CloudinaryResult {

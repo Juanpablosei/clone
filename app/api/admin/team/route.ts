@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
 import { v2 as cloudinary } from "cloudinary";
+import pg from "pg";
 
 // Configurar Cloudinary
 cloudinary.config({
@@ -9,6 +10,80 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+const CONTENT_TABLES = [
+  "authors",
+  "news",
+  "news_blocks",
+  "partners",
+  "worked",
+  "team_members",
+  "site_config",
+  "resource_downloads",
+  "resources",
+  "home_page",
+  "about_us_page",
+  "about_us_testimonials",
+  "education_page",
+  "research_publications_page",
+  "advisory_page",
+] as const;
+
+function extractPublicId(url: string): string | null {
+  if (!url || !url.includes("res.cloudinary.com")) return null;
+  
+  const urlParts = url.split("/");
+  const uploadIndex = urlParts.findIndex((part) => part === "upload");
+  
+  if (uploadIndex === -1) return null;
+  
+  const afterUpload = urlParts.slice(uploadIndex + 1);
+  let publicId = "";
+  
+  if (afterUpload[0]?.startsWith("v") && /^\d+$/.test(afterUpload[0].substring(1))) {
+    publicId = afterUpload.slice(1).join("/");
+  } else {
+    publicId = afterUpload.join("/");
+  }
+  
+  return publicId.replace(/\.[^/.]+$/, "");
+}
+
+async function isUrlUsedInMainDb(url: string): Promise<boolean> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString || !url) return false;
+
+  const client = new pg.Client({ connectionString });
+  const needle = `%${url}%`;
+
+  try {
+    await client.connect();
+    for (const table of CONTENT_TABLES) {
+      try {
+        const res = await client.query(
+          `SELECT 1
+           FROM "${table}" t
+           WHERE to_jsonb(t)::text LIKE $1
+           LIMIT 1`,
+          [needle]
+        );
+        if (res.rows.length > 0) return true;
+      } catch (tableError) {
+        // Si una tabla no existe en main o falla por estructura, la ignoramos.
+        // No debe bloquear la limpieza de imágenes.
+        console.warn(`Skipping table "${table}" while checking main DB usage:`, tableError);
+        continue;
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error("Error checking URL usage in main DB:", error);
+    // En fallo total de conexión/consulta global, mantener comportamiento seguro.
+    return true;
+  } finally {
+    await client.end();
+  }
+}
 
 export async function GET() {
   const session = await auth();
@@ -126,27 +201,6 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Team member not found" }, { status: 404 });
     }
 
-    // Función helper para extraer public_id de URL de Cloudinary
-    const extractPublicId = (url: string): string | null => {
-      if (!url || !url.includes("res.cloudinary.com")) return null;
-      
-      const urlParts = url.split("/");
-      const uploadIndex = urlParts.findIndex((part) => part === "upload");
-      
-      if (uploadIndex === -1) return null;
-      
-      const afterUpload = urlParts.slice(uploadIndex + 1);
-      let publicId = "";
-      
-      if (afterUpload[0]?.startsWith("v") && /^\d+$/.test(afterUpload[0].substring(1))) {
-        publicId = afterUpload.slice(1).join("/");
-      } else {
-        publicId = afterUpload.join("/");
-      }
-      
-      return publicId.replace(/\.[^/.]+$/, "");
-    };
-
     // Validar que haya una imagen (nueva o existente)
     if (!data.image) {
       return NextResponse.json(
@@ -208,7 +262,7 @@ export async function PUT(request: Request) {
       image: teamMember.image,
     });
 
-    // DESPUÉS: Eliminar la imagen anterior de Cloudinary (solo si es diferente y existe)
+    // DESPUÉS: Eliminar la imagen anterior de Cloudinary (solo si es diferente y NO está en uso en Base 1)
     // Hacemos esto después de guardar para asegurar que la nueva imagen ya está guardada
     if (
       originalImage &&
@@ -222,18 +276,24 @@ export async function PUT(request: Request) {
         
         // Solo eliminar si el public_id es diferente (para evitar eliminar la nueva imagen)
         if (originalPublicId && originalPublicId !== newPublicId) {
-          await new Promise((resolve, reject) => {
-            cloudinary.uploader.destroy(originalPublicId, (error, result) => {
-              if (error) {
-                console.error("Error deleting old image from Cloudinary:", error);
-                // No fallar si no se puede eliminar la imagen anterior
-                resolve(result);
-              } else {
-                console.log("Old image deleted successfully:", originalPublicId);
-                resolve(result);
-              }
+          // Verificar si la imagen anterior está siendo usada en Base 1 (main database)
+          const usedInMain = await isUrlUsedInMainDb(originalImage);
+          if (usedInMain) {
+            console.log("ℹ️ Previous image is still used in main DB, skipping delete:", originalImage);
+          } else {
+            await new Promise((resolve, reject) => {
+              cloudinary.uploader.destroy(originalPublicId, (error, result) => {
+                if (error) {
+                  console.error("Error deleting old image from Cloudinary:", error);
+                  // No fallar si no se puede eliminar la imagen anterior
+                  resolve(result);
+                } else {
+                  console.log("🧹 Old image deleted successfully:", originalPublicId);
+                  resolve(result);
+                }
+              });
             });
-          });
+          }
         } else {
           console.log("⚠️ Skipping deletion - same public_id or invalid:", {
             originalPublicId,
@@ -280,43 +340,30 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Team member not found" }, { status: 404 });
     }
 
-    // Función helper para extraer public_id de URL de Cloudinary
-    const extractPublicId = (url: string): string | null => {
-      if (!url || !url.includes("res.cloudinary.com")) return null;
-      
-      const urlParts = url.split("/");
-      const uploadIndex = urlParts.findIndex((part) => part === "upload");
-      
-      if (uploadIndex === -1) return null;
-      
-      const afterUpload = urlParts.slice(uploadIndex + 1);
-      let publicId = "";
-      
-      if (afterUpload[0]?.startsWith("v") && /^\d+$/.test(afterUpload[0].substring(1))) {
-        publicId = afterUpload.slice(1).join("/");
-      } else {
-        publicId = afterUpload.join("/");
-      }
-      
-      return publicId.replace(/\.[^/.]+$/, "");
-    };
-
-    // Eliminar la imagen de Cloudinary primero
+    // Eliminar la imagen de Cloudinary solo si NO está siendo usada en Base 1
     let imageDeleted = true;
     if (teamMember.image && teamMember.image.includes("res.cloudinary.com")) {
       try {
-        const publicId = extractPublicId(teamMember.image);
-        if (publicId) {
-          await new Promise((resolve, reject) => {
-            cloudinary.uploader.destroy(publicId, (error, result) => {
-              if (error) {
-                console.error("Error deleting image from Cloudinary:", error);
-                reject(error);
-              } else {
-                resolve(result);
-              }
+        // Verificar si la imagen está siendo usada en Base 1 (main database)
+        const usedInMain = await isUrlUsedInMainDb(teamMember.image);
+        if (usedInMain) {
+          console.log("ℹ️ Image is still used in main DB, skipping delete:", teamMember.image);
+          imageDeleted = true; // No es un error, simplemente no se borra
+        } else {
+          const publicId = extractPublicId(teamMember.image);
+          if (publicId) {
+            await new Promise((resolve, reject) => {
+              cloudinary.uploader.destroy(publicId, (error, result) => {
+                if (error) {
+                  console.error("Error deleting image from Cloudinary:", error);
+                  reject(error);
+                } else {
+                  console.log("🧹 Image deleted from Cloudinary:", publicId);
+                  resolve(result);
+                }
+              });
             });
-          });
+          }
         }
       } catch (cloudinaryError) {
         console.error("Error deleting image from Cloudinary:", cloudinaryError);
@@ -324,7 +371,7 @@ export async function DELETE(request: Request) {
       }
     }
 
-    // Solo eliminar el registro si la imagen se eliminó correctamente (o no había imagen)
+    // Solo eliminar el registro si la imagen se eliminó correctamente (o no había imagen, o está en uso en Base 1)
     if (!imageDeleted && teamMember.image) {
       return NextResponse.json(
         { error: "Failed to delete image from Cloudinary" },

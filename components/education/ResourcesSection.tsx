@@ -59,12 +59,16 @@ export default function ResourcesSection() {
     return matchesTag && matchesSearch;
   });
 
+  const triggerForcedDownload = (resource: Resource) => {
+    window.open(resource.fileUrl, "_blank");
+  };
+
   const handleDownloadClick = (resource: Resource) => {
     setSelectedResource(resource);
     
     // Si requireEmail es false, descargar directamente
     if (!resource.requireEmail) {
-      window.open(resource.fileUrl, "_blank");
+      triggerForcedDownload(resource);
       return;
     }
     
@@ -91,7 +95,7 @@ export default function ResourcesSection() {
     });
     
     // Descargar el archivo
-    window.open(selectedResource.fileUrl, "_blank");
+    triggerForcedDownload(selectedResource);
     
     // Cerrar el modal de formulario
     setIsModalOpen(false);

@@ -124,9 +124,14 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 });
     }
 
-    await prisma.resource.delete({
+    const deleted = await prisma.resource.deleteMany({
       where: { id },
     });
+
+    if (deleted.count === 0) {
+      // Delete idempotente: si ya no existe, no romper UI.
+      return NextResponse.json({ success: true, alreadyDeleted: true });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -13,14 +13,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Guardar en la base de datos (permitir múltiples descargas del mismo email para diferentes recursos)
-    const download = await prisma.resourceDownload.create({
-      data: {
-        name,
-        email,
-        resourceTitle,
-      },
-    });
+    // Intentar crear. Si existe unique(email) en DB, actualizar el registro existente.
+    let download;
+    try {
+      download = await prisma.resourceDownload.create({
+        data: {
+          name,
+          email,
+          resourceTitle,
+        },
+      });
+    } catch (err: unknown) {
+      const isUniqueEmail =
+        typeof err === "object" &&
+        err !== null &&
+        "code" in err &&
+        (err as { code?: string }).code === "P2002";
+
+      if (!isUniqueEmail) {
+        throw err;
+      }
+
+      const existing = await prisma.resourceDownload.findFirst({
+        where: { email },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (!existing) {
+        throw err;
+      }
+
+      download = await prisma.resourceDownload.update({
+        where: { id: existing.id },
+        data: {
+          name,
+          resourceTitle,
+        },
+      });
+    }
 
     return NextResponse.json(
       { message: "Download registered successfully", download },
