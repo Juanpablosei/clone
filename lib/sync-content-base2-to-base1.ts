@@ -14,7 +14,6 @@ const CONTENT_TABLES = [
   "team_members",
   "site_config",
   "resource_downloads",
-  "resources",
   "home_page",
   "about_us_page",
   "about_us_testimonials",
@@ -28,7 +27,6 @@ const DELETE_MIRROR_TABLES = new Set<string>([
   "news",
   "news_blocks",
   "about_us_testimonials",
-  "resources",
 ]);
 
 const DB_SOURCE = process.env.DATABASE_URL_TARGET; // Base 2 (editor)

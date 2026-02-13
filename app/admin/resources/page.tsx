@@ -1,23 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import ResourceForm from "../../../components/admin/ResourceForm";
-import ConfirmModal from "../../../components/admin/ConfirmModal";
 import ImageUpload from "../../../components/admin/ImageUpload";
-import EducationIntroSection from "../../../components/education/EducationIntroSection";
-import ImageContentSection from "../../../components/education/ImageContentSection";
 import Image from "next/image";
-
-interface Resource {
-  id: string;
-  title: string;
-  description: string;
-  fileUrl: string;
-  fileType: string;
-  tags: string[];
-  image?: string | null;
-  requireEmail: boolean;
-}
 
 interface AccordionItem {
   title: string;
@@ -39,28 +24,7 @@ interface EducationPageData {
   iconType?: string | null;
 }
 
-type Tab = "content" | "resources";
-
 export default function ResourcesPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("content");
-  
-  // Resources state
-  const [resources, setResources] = useState<Resource[]>([]);
-  const [resourcesLoading, setResourcesLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingResource, setEditingResource] = useState<Resource | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [deleteModal, setDeleteModal] = useState<{
-    isOpen: boolean;
-    resourceId: string | null;
-    resourceTitle: string;
-  }>({
-    isOpen: false,
-    resourceId: null,
-    resourceTitle: "",
-  });
-
-  // Education page content state
   const [contentLoading, setContentLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -82,26 +46,8 @@ export default function ResourcesPage() {
   });
 
   useEffect(() => {
-    if (activeTab === "resources") {
-      fetchResources();
-    } else {
-      fetchEducationPageData();
-    }
-  }, [activeTab]);
-
-  const fetchResources = async () => {
-    try {
-      const response = await fetch("/api/admin/resources");
-      if (response.ok) {
-        const data = await response.json();
-        setResources(data);
-      }
-    } catch {
-      console.error("Error fetching resources");
-    } finally {
-      setResourcesLoading(false);
-    }
-  };
+    fetchEducationPageData();
+  }, []);
 
   const fetchEducationPageData = async () => {
     try {
@@ -202,71 +148,6 @@ export default function ResourcesPage() {
     }
   };
 
-  const handleFormSuccess = () => {
-    setShowForm(false);
-    setEditingResource(null);
-    fetchResources();
-  };
-
-  const handleFormCancel = () => {
-    setShowForm(false);
-    setEditingResource(null);
-  };
-
-  const handleDelete = (id: string) => {
-    const resource = resources.find((r) => r.id === id);
-    if (resource) {
-      setDeleteModal({
-        isOpen: true,
-        resourceId: id,
-        resourceTitle: resource.title,
-      });
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteModal.resourceId) return;
-
-    try {
-      const response = await fetch(
-        `/api/admin/resources?id=${deleteModal.resourceId}`,
-        {
-          method: "DELETE",
-        }
-      );
-
-      if (response.ok) {
-        fetchResources();
-      } else {
-        alert("Error deleting resource");
-      }
-    } catch {
-      alert("Error deleting resource");
-    } finally {
-      setDeleteModal({
-        isOpen: false,
-        resourceId: null,
-        resourceTitle: "",
-      });
-    }
-  };
-
-  const handleEdit = (id: string) => {
-    const resource = resources.find((r) => r.id === id);
-    if (resource) {
-      setEditingResource(resource);
-      setShowForm(true);
-    }
-  };
-
-  const filteredResources = resources.filter((resource) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      resource.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
-
   const accordionItems: AccordionItem[] = Array.isArray(formData.accordionItems) 
     ? formData.accordionItems 
     : [];
@@ -295,15 +176,7 @@ export default function ResourcesPage() {
     return null;
   };
 
-  if (activeTab === "content" && contentLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--admin-text-muted)]">Loading...</p>
-      </div>
-    );
-  }
-
-  if (activeTab === "resources" && resourcesLoading) {
+  if (contentLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <p className="text-[var(--admin-text-muted)]">Loading...</p>
@@ -313,33 +186,7 @@ export default function ResourcesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Tabs */}
-      <div className="flex items-center gap-4 border-b border-[var(--admin-border)]">
-        <button
-          onClick={() => setActiveTab("content")}
-          className={`px-4 py-2 text-sm font-semibold transition ${
-            activeTab === "content"
-              ? "border-b-2 border-primary text-primary"
-              : "text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]"
-          }`}
-        >
-          Page Content
-        </button>
-        <button
-          onClick={() => setActiveTab("resources")}
-          className={`px-4 py-2 text-sm font-semibold transition ${
-            activeTab === "resources"
-              ? "border-b-2 border-primary text-primary"
-              : "text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]"
-          }`}
-        >
-          Resources
-        </button>
-      </div>
-
-      {/* Page Content Tab */}
-      {activeTab === "content" && (
-        <div className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen bg-background text-foreground">
           {/* Barra superior fija con botón de guardar */}
           <div className="sticky top-0 z-50 border-b border-[var(--admin-border)] bg-[var(--admin-surface)] px-6 py-4 shadow-sm">
             <div className="mx-auto flex max-w-[1600px] items-center justify-between">
@@ -632,142 +479,6 @@ export default function ResourcesPage() {
             </div>
           </form>
         </div>
-      )}
-
-      {/* Resources Tab */}
-      {activeTab === "resources" && (
-        <>
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-semibold text-[var(--admin-text)]">
-              Resources
-            </h1>
-            {!showForm && (
-              <button
-                onClick={() => {
-                  setEditingResource(null);
-                  setShowForm(true);
-                }}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-strong"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add Resource
-              </button>
-            )}
-          </div>
-
-          {showForm && (
-            <ResourceForm
-              onSuccess={handleFormSuccess}
-              onCancel={handleFormCancel}
-              resource={editingResource}
-            />
-          )}
-
-          {!showForm && (
-            <>
-              <div>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search resources..."
-                  className="w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2 text-sm text-[var(--admin-text)] transition focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
-                />
-              </div>
-
-              {filteredResources.length === 0 ? (
-                <div className="flex items-center justify-center py-12">
-                  <p className="text-[var(--admin-text-muted)]">
-                    {searchQuery
-                      ? "No resources found matching your criteria"
-                      : "No resources yet"}
-                  </p>
-                </div>
-              ) : (
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredResources.map((resource) => (
-                    <div
-                      key={resource.id}
-                      className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-sm"
-                    >
-                      {resource.image && (
-                        <div className="relative mb-4 h-48 w-full overflow-hidden rounded-lg">
-                          <img
-                            src={resource.image}
-                            alt={resource.title}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                      )}
-                      <div className="mb-2 flex items-center gap-2">
-                        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                          {resource.fileType}
-                        </span>
-                        {resource.requireEmail && (
-                          <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
-                            Requires Email
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="mb-2 text-lg font-semibold text-[var(--admin-text)]">
-                        {resource.title}
-                      </h3>
-                      <p className="mb-4 line-clamp-3 text-sm text-[var(--admin-text-muted)]">
-                        {resource.description}
-                      </p>
-                      {resource.tags.length > 0 && (
-                        <div className="mb-4 flex flex-wrap gap-1">
-                          {resource.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 py-0.5 text-xs text-[var(--admin-text-muted)]"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEdit(resource.id)}
-                          className="flex-1 rounded-lg bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/20"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(resource.id)}
-                          className="rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          <ConfirmModal
-            isOpen={deleteModal.isOpen}
-            onClose={() =>
-              setDeleteModal({
-                isOpen: false,
-                resourceId: null,
-                resourceTitle: "",
-              })
-            }
-            onConfirm={confirmDelete}
-            title="Delete Resource"
-            message={`Are you sure you want to delete "${deleteModal.resourceTitle}"? This action cannot be undone.`}
-            confirmText="Delete"
-            cancelText="Cancel"
-            confirmColor="danger"
-          />
-        </>
-      )}
     </div>
   );
 }

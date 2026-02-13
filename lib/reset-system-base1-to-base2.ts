@@ -14,7 +14,6 @@ const CONTENT_TABLES = [
   "team_members",
   "site_config",
   "resource_downloads",
-  "resources",
   "home_page",
   "about_us_page",
   "about_us_testimonials",
