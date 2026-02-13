@@ -23,8 +23,13 @@ const CONTENT_TABLES = [
   "advisory_page",
 ] as const;
 
-// Mirror delete para noticias y sus bloques (seccion editorial).
-const DELETE_MIRROR_TABLES = new Set<string>(["news", "news_blocks"]);
+// Tablas donde, al sincronizar Base 2 -> Base 1, se borran en Base 1 los registros que ya no están en Base 2.
+const DELETE_MIRROR_TABLES = new Set<string>([
+  "news",
+  "news_blocks",
+  "about_us_testimonials",
+  "resources",
+]);
 
 const DB_SOURCE = process.env.DATABASE_URL_TARGET; // Base 2 (editor)
 const DB_TARGET = process.env.DATABASE_URL; // Base 1 (main)
