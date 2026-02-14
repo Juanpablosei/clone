@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+  trustHost: true, // Necesario en Vercel/serverless para evitar bucles de redirect
   providers: [
     Credentials({
       credentials: {

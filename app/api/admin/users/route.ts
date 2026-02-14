@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
+import type { UserRole } from "../../../../generated/prisma/client";
 import bcrypt from "bcryptjs";
 
 export async function GET() {
@@ -128,11 +129,11 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Preparar datos de actualización
-    const updateData: { email?: string; name?: string | null; role?: string; active?: boolean; password?: string } = {};
+    // Preparar datos de actualización (role es enum UserRole en Prisma)
+    const updateData: { email?: string; name?: string | null; role?: UserRole; active?: boolean; password?: string } = {};
     if (data.email) updateData.email = data.email;
     if (data.name !== undefined) updateData.name = data.name || null;
-    if (data.role) updateData.role = data.role;
+    if (data.role) updateData.role = data.role as UserRole;
     if (data.active !== undefined) updateData.active = Boolean(data.active);
     if (data.password) {
       updateData.password = await bcrypt.hash(data.password, 10);

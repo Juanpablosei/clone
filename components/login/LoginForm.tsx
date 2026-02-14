@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 
 export default function LoginForm() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,7 +19,7 @@ export default function LoginForm() {
         email,
         password,
         redirect: false,
-        callbackUrl: "/admin",
+        callbackUrl: "/auth/callback",
       });
 
       if (result?.error) {
@@ -32,8 +30,11 @@ export default function LoginForm() {
         setError(msg);
         setLoading(false);
       } else if (result?.ok) {
-        router.push("/admin");
-        router.refresh();
+        // Navegación completa (no router.push) para que la cookie se envíe en la siguiente
+        // petición y no haya bucle de redirects en Vercel.
+        window.location.href = "/auth/callback";
+      } else {
+        setLoading(false);
       }
     } catch {
       setError("An error occurred. Please try again.");

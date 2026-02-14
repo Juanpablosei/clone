@@ -41,6 +41,7 @@
     "@tiptap/starter-kit": "^3.13.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/nodemailer": "^7.0.5",
+    "baseline-browser-mapping": "^2.9.19",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.1.2",
     "cloudinary": "^2.0.0",
