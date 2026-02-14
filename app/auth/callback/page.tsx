@@ -1,6 +1,9 @@
 import { auth } from "../../../lib/auth";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * Página intermedia después del login. NextAuth redirige aquí con la cookie ya
  * establecida (redirect completo), así el servidor ve la sesión. Desde aquí

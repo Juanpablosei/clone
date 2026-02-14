@@ -3,6 +3,9 @@ import AdminNavbar from "../../components/admin/AdminNavbar";
 import SessionProvider from "../../components/providers/SessionProvider";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AdminLayout({
   children,
 }: {
