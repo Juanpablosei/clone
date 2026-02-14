@@ -1,55 +1,24 @@
-/**
- * Código de middleware NO USADO. Next.js solo ejecuta middleware desde un archivo
- * llamado middleware.ts en la raíz. Este archivo no se importa en ningún sitio.
- * Si se activara (renombrando a middleware.ts), podría causar bucles de redirect
- * porque getToken en Edge a veces no ve la cookie igual que auth() en Node.
- */
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "./lib/auth";
 
-export async function proxy(req: NextRequest) {
-  const { nextUrl } = req;
-  const { pathname } = nextUrl;
+export const proxy = auth((req) => {
+  const pathname = req.nextUrl.pathname;
 
-  const isLogin = pathname === "/login";
-  const isAdmin = pathname.startsWith("/admin");
-  const isApiAuth = pathname.startsWith("/api/auth");
-
-  if (isApiAuth) {
-    return NextResponse.next();
+  if (pathname === "/admin/login") {
+    return;
   }
 
-  const token = await getToken({
-    req,
-    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
-  });
-
-  if (!token) {
-    if (isLogin) {
-      return NextResponse.next();
+  if (pathname.startsWith("/admin")) {
+    const session = req.auth;
+    if (!session) {
+      return Response.redirect(new URL("/admin/login", req.nextUrl));
     }
-    return NextResponse.redirect(new URL("/login", nextUrl));
-  }
-
-  const role = token.role as string | undefined;
-
-  if (isLogin) {
-    if (role === "EDITOR") {
-      return NextResponse.redirect(new URL("/admin", nextUrl));
+    const role = (session.user as { role?: string })?.role;
+    if (role === "VIEWER") {
+      return Response.redirect(new URL("/", req.nextUrl));
     }
-    return NextResponse.redirect(new URL("/", nextUrl));
   }
-
-  if (role === "VIEWER" && isAdmin) {
-    return NextResponse.redirect(new URL("/", nextUrl));
-  }
-
-  return NextResponse.next();
-}
+});
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/admin/:path*"],
 };
