@@ -15,27 +15,24 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      const result = await signIn("credentials", {
+      // redirect: true → NextAuth responde con Set-Cookie + 302 en la MISMA respuesta.
+      // El navegador guarda la cookie y sigue el redirect; no hay petición intermedia ni bucle.
+      const result = (await signIn("credentials", {
         email,
         password,
-        redirect: false,
-        callbackUrl: "/auth/callback",
-      });
+        redirect: true,
+        callbackUrl: "/admin",
+      })) as { error?: string } | undefined;
 
+      // Solo llegamos aquí si hay error (credenciales incorrectas); si OK, el navegador ya redirigió.
       if (result?.error) {
         const msg =
           result.error === "CredentialsSignin"
             ? "Correo o contraseña incorrectos, o la cuenta está desactivada."
             : "Error al iniciar sesión. Intenta de nuevo.";
         setError(msg);
-        setLoading(false);
-      } else if (result?.ok) {
-        // Navegación completa (no router.push) para que la cookie se envíe en la siguiente
-        // petición y no haya bucle de redirects en Vercel.
-        window.location.href = "/auth/callback";
-      } else {
-        setLoading(false);
       }
+      setLoading(false);
     } catch {
       setError("An error occurred. Please try again.");
       setLoading(false);
