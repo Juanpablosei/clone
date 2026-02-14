@@ -1,7 +1,8 @@
 import "dotenv/config";
+import path from "path";
 import pg from "pg";
 import { v2 as cloudinary } from "cloudinary";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 
 type LogFn = (message: string) => void;
 
@@ -211,12 +212,16 @@ export async function resetSystemBase1ToBase2(log: LogFn = console.log) {
 
     // Aplicar migraciones primero
     log("\nAplicando migraciones en Base 2...");
-    execSync("npx prisma migrate deploy", {
+    const prismaCli = path.join(process.cwd(), "node_modules", "prisma", "build", "index.js");
+    const env = {
+      ...process.env,
+      DATABASE_URL: DB_TARGET,
+      // En Vercel, HOME no existe; forzar /tmp para evitar ENOENT de npm/npx
+      ...(process.env.VERCEL && { HOME: "/tmp", npm_config_cache: "/tmp/.npm" }),
+    };
+    execFileSync("node", [prismaCli, "migrate", "deploy"], {
       cwd: process.cwd(),
-      env: {
-        ...process.env,
-        DATABASE_URL: DB_TARGET,
-      },
+      env,
       stdio: "inherit",
     });
 
